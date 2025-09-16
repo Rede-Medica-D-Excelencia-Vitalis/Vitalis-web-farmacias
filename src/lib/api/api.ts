@@ -162,9 +162,15 @@ export const apiService = {
   auth: {
     login: async (email: string, senha: string): Promise<LoginResponse> => {
       console.log('🌐 Fazendo requisição de login...');
-      const response = await api.post('/auth/login', { email, senha });
-      console.log('📥 Resposta da API:', response.data);
-      return response.data;
+      try {
+        const response = await api.post('/auth/login', { email, senha });
+        console.log('📥 Resposta da API:', response.data);
+        return response.data;
+      } catch (error: any) {
+        console.error('❌ Erro na requisição de login:', error);
+        // Re-lançar o erro para que seja tratado pelo contexto
+        throw error;
+      }
     },
 
     logout: () => {
@@ -184,7 +190,23 @@ export const apiService = {
       console.log('💾 Salvando dados de autenticação...', { token: token ? 'Presente' : 'Ausente', user });
       localStorage.setItem('authToken', token);
       localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('tokenExpiry', (Date.now() + 3600000).toString()); // 1 hora
       console.log('✅ Dados salvos com sucesso');
+    },
+
+    refreshToken: async (): Promise<{ token: string }> => {
+      console.log('🔄 Renovando token...');
+      try {
+        const response = await api.post('/auth/refresh');
+        const { token } = response.data;
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('tokenExpiry', (Date.now() + 3600000).toString()); // 1 hora
+        console.log('✅ Token renovado com sucesso');
+        return { token };
+      } catch (error) {
+        console.error('❌ Erro ao renovar token:', error);
+        throw error;
+      }
     },
   },
 

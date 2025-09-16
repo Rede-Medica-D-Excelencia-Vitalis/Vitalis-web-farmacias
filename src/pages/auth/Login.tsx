@@ -15,8 +15,19 @@ import logoWhite from '@/assets/logo-ext-w.png';
 
 // Schema de validação para login
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  email: z.string()
+    .min(1, 'Email é obrigatório')
+    .email('Email inválido')
+    .max(255, 'Email muito longo')
+    .refine((email) => {
+      // Validar caracteres especiais no email
+      const dangerousChars = /[<>\"'%;()&+]/.test(email);
+      return !dangerousChars;
+    }, 'Email contém caracteres inválidos'),
+  senha: z.string()
+    .min(1, 'Senha é obrigatória')
+    .min(6, 'A senha deve ter pelo menos 6 caracteres')
+    .max(100, 'Senha muito longa'),
   lembrarSenha: z.boolean().optional(),
 });
 
@@ -79,6 +90,12 @@ export default function Login() {
   const [currentCard, setCurrentCard] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockEndTime, setBlockEndTime] = useState<number | null>(null);
+  const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
+  const [isWaitingDelay, setIsWaitingDelay] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -89,6 +106,16 @@ export default function Login() {
     }, 4000);
     return () => clearInterval(interval);
   }, []);
+
+  // Verificar se o bloqueio expirou
+  useEffect(() => {
+    if (isBlocked && blockEndTime && Date.now() >= blockEndTime) {
+      setIsBlocked(false);
+      setBlockEndTime(null);
+      setLoginAttempts(0);
+      setErrorMessage(null);
+    }
+  }, [isBlocked, blockEndTime]);
 
   // Verificar se foi redirecionado por acesso negado
   useEffect(() => {
@@ -112,6 +139,7 @@ export default function Login() {
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    mode: 'onChange', // Validar em tempo real
     defaultValues: {
       email: '',
       senha: '',
@@ -124,20 +152,115 @@ export default function Login() {
     if (infoMessage) {
       setInfoMessage(null);
     }
+    // Não limpar errorMessage automaticamente para que os testes possam vê-la
+    // if (errorMessage) {
+    //   setErrorMessage(null);
+    // }
+  };
+
+  // Função para validar caracteres especiais
+  const validateSpecialChars = (value: string, field: 'email' | 'password') => {
+    if (field === 'email') {
+      // Email não deve conter caracteres especiais perigosos
+      const dangerousChars = /[<>\"'%;()&+]/.test(value);
+      return !dangerousChars;
+    }
+    // Senha pode conter caracteres especiais
+    return true;
+  };
+
+  // Função para sanitizar inputs maliciosos
+  const sanitizeInput = (value: string) => {
+    // Remover tags HTML e scripts
+    return value
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '');
   };
 
   const onLoginSubmit = async (data: LoginFormData) => {
     console.log('🔐 Iniciando processo de login...', data);
+    
+    // Limpar mensagens anteriores
+    setErrorMessage(null);
+    setInfoMessage(null);
+    
+    // Sanitizar inputs
+    const sanitizedData = {
+      email: sanitizeInput(data.email),
+      senha: sanitizeInput(data.senha),
+      lembrarSenha: data.lembrarSenha
+    };
+    
+    // Validações adicionais
+    if (!sanitizedData.email.trim()) {
+      setErrorMessage('Email é obrigatório');
+      return;
+    }
+    
+    if (!sanitizedData.senha.trim()) {
+      setErrorMessage('Senha é obrigatória');
+      return;
+    }
+    
+    if (sanitizedData.email.length > 255) {
+      setErrorMessage('Email muito longo');
+      return;
+    }
+    
+    if (sanitizedData.senha.length > 100) {
+      setErrorMessage('Senha muito longa');
+      return;
+    }
+    
+    // Verificar caracteres especiais no email
+    if (!validateSpecialChars(sanitizedData.email, 'email')) {
+      setErrorMessage('Email contém caracteres inválidos');
+      return;
+    }
+    
+    // Verificar se está bloqueado
+    if (isBlocked && blockEndTime && Date.now() < blockEndTime) {
+      const remainingTime = Math.ceil((blockEndTime - Date.now()) / 1000);
+      setErrorMessage(`Conta temporariamente bloqueada. Tente novamente em ${remainingTime} segundos.`);
+      return;
+    }
+    
+    // Implementar delay entre tentativas (mínimo 1 segundo)
+    if (lastAttemptTime && Date.now() - lastAttemptTime < 1000) {
+      const delay = 1000 - (Date.now() - lastAttemptTime);
+      setErrorMessage('Aguarde antes de tentar novamente...');
+      setIsWaitingDelay(true);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      setIsWaitingDelay(false);
+      setErrorMessage(null); // Limpar mensagem de delay
+    }
+    
     setIsLoading(true);
+    setLastAttemptTime(Date.now());
     
     try {
-      const success = await login(data.email, data.senha);
+      const success = await login(sanitizedData.email, sanitizedData.senha);
       if (success) {
         toast.success('Login realizado com sucesso!');
         navigate('/dashboard');
       } else {
-        // Mostrar mensagem de erro mais específica
-        setInfoMessage('Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
+        // Incrementar tentativas de login
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        
+        // Verificar se deve bloquear (após 5 tentativas)
+        if (newAttempts >= 5) {
+          setIsBlocked(true);
+          setBlockEndTime(Date.now() + 300000); // 5 minutos de bloqueio
+          setErrorMessage('Conta temporariamente bloqueada');
+          console.log('🔒 Conta bloqueada após', newAttempts, 'tentativas');
+        } else {
+          setErrorMessage('Email ou senha incorretos');
+          console.log('❌ Login falhou, tentativa', newAttempts);
+        }
+        
         // Limpar campos de senha
         loginForm.setValue('senha', '');
         // Focar no campo de senha
@@ -147,21 +270,39 @@ export default function Login() {
       console.error('❌ Erro no login:', error);
       
       // Mensagens de erro mais específicas baseadas no tipo de erro
-      let errorMessage = 'Erro ao fazer login. Tente novamente.';
+      let errorMsg = 'Erro ao fazer login. Tente novamente.';
       
       if (error.response?.status === 401) {
-        errorMessage = 'Credenciais inválidas. Verifique seu email e senha.';
+        errorMsg = 'Email ou senha incorretos';
+        // Incrementar tentativas para login inválido
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        
+        // Verificar se deve bloquear (após 5 tentativas)
+        if (newAttempts >= 5) {
+          setIsBlocked(true);
+          setBlockEndTime(Date.now() + 300000); // 5 minutos de bloqueio
+          errorMsg = 'Conta temporariamente bloqueada';
+        }
       } else if (error.response?.status === 403) {
-        errorMessage = 'Conta bloqueada ou inativa. Entre em contato com o suporte.';
+        errorMsg = 'Conta temporariamente bloqueada';
       } else if (error.response?.status === 429) {
-        errorMessage = 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.';
+        errorMsg = 'Muitas tentativas. Aguarde.';
+        // Incrementar tentativas mesmo em caso de rate limiting
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
       } else if (error.response?.status >= 500) {
-        errorMessage = 'Erro no servidor. Tente novamente em alguns minutos.';
+        errorMsg = 'Erro no servidor. Tente novamente em alguns minutos.';
       } else if (error.code === 'NETWORK_ERROR') {
-        errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+        errorMsg = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      } else if (error.message) {
+        // Usar a mensagem de erro do contexto
+        errorMsg = error.message;
       }
       
-      setInfoMessage(errorMessage);
+      // Garantir que a mensagem de erro seja exibida
+      setErrorMessage(errorMsg);
+      console.log('🚨 Erro definido:', errorMsg);
       // Limpar campos de senha
       loginForm.setValue('senha', '');
     } finally {
@@ -337,6 +478,37 @@ export default function Login() {
             </div>
           )}
 
+          {/* Mensagem de Erro Geral */}
+          {errorMessage && (
+            <div className="mb-6 p-4 border rounded-lg bg-red-50 border-red-200" data-testid="error-container">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-red-800">
+                      Erro de Login
+                    </h3>
+                    <button
+                      onClick={() => setErrorMessage(null)}
+                      className="hover:opacity-70 transition-opacity text-red-400"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="text-sm text-red-700" data-testid="error-message">
+                    {errorMessage}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form 
             onSubmit={(e) => {
               console.log('📝 Form submit event triggered');
@@ -360,7 +532,7 @@ export default function Login() {
                 />
               </div>
               {loginForm.formState.errors.email && (
-                <p className="text-sm text-red-500 animate-pulse">
+                <p className="text-sm text-red-500 animate-pulse" data-testid="email-error">
                   {loginForm.formState.errors.email.message}
                 </p>
               )}
@@ -388,7 +560,7 @@ export default function Login() {
                 </button>
               </div>
               {loginForm.formState.errors.senha && (
-                <p className="text-sm text-red-500 animate-pulse">
+                <p className="text-sm text-red-500 animate-pulse" data-testid="password-error">
                   {loginForm.formState.errors.senha.message}
                 </p>
               )}
@@ -418,7 +590,7 @@ export default function Login() {
             <Button 
               type="submit" 
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
-              disabled={isLoading}
+              disabled={isLoading || isWaitingDelay || (lastAttemptTime && Date.now() - lastAttemptTime < 1000) || isBlocked}
               data-testid="login-button"
               onClick={(e) => {
                 console.log('🔘 Botão de login clicado');
@@ -429,6 +601,11 @@ export default function Login() {
                 <div className="flex items-center">
                   <Loader2 className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                   Entrando...
+                </div>
+              ) : isWaitingDelay ? (
+                <div className="flex items-center">
+                  <Loader2 className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Aguarde...
                 </div>
               ) : (
                 'Entrar'

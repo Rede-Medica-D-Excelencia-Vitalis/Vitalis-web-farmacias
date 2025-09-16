@@ -29,9 +29,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user;
 
-  const checkAuth = () => {
+  const checkAuth = async () => {
     console.log('🔍 Verificando autenticação...');
     const token = localStorage.getItem('authToken');
+    const tokenExpiry = localStorage.getItem('tokenExpiry');
     
     // Verificar se apiService está disponível antes de usar
     let currentUser = null;
@@ -49,6 +50,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('Usuário:', currentUser);
     
     if (token && currentUser) {
+      // Verificar se o token está próximo do vencimento (5 minutos)
+      if (tokenExpiry && Date.now() > parseInt(tokenExpiry) - 300000) {
+        console.log('🔄 Token próximo do vencimento, tentando renovar...');
+        try {
+          // Tentar renovar o token
+          const response = await apiService.auth.refreshToken?.();
+          if (response?.token) {
+            console.log('✅ Token renovado com sucesso');
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('tokenExpiry', (Date.now() + 3600000).toString()); // 1 hora
+          }
+        } catch (error) {
+          console.warn('⚠️ Falha ao renovar token, continuando com token atual');
+        }
+      }
+      
       console.log('✅ Usuário autenticado encontrado');
       setUser(currentUser);
     } else {
@@ -89,6 +106,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return true;
       } else {
         console.log('❌ Login falhou - dados inválidos');
+        // Retornar false em vez de lançar erro para que seja tratado pelo componente
         return false;
       }
     } catch (error: any) {
@@ -99,8 +117,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error(error.response.data.erro);
       } else if (error.response?.status === 401) {
         throw new Error('Email ou senha incorretos');
+      } else if (error.response?.status === 403) {
+        throw new Error('Conta temporariamente bloqueada');
+      } else if (error.response?.status === 429) {
+        throw new Error('Muitas tentativas. Aguarde.');
       } else if (error.response?.status === 400) {
         throw new Error('Dados inválidos');
+      } else if (error.response?.status >= 500) {
+        throw new Error('Erro no servidor. Tente novamente em alguns minutos.');
+      } else if (error.code === 'NETWORK_ERROR') {
+        throw new Error('Erro de conexão. Verifique sua internet.');
       } else {
         throw new Error('Erro de conexão. Verifique sua internet.');
       }
