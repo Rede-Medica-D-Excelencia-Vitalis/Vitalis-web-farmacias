@@ -402,7 +402,7 @@ const Products = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="products-page">
       {/* Espaço para não sobrepor o sino de notificação */}
       <div className="h-12 md:h-0" />
       {/* Cabeçalho */}

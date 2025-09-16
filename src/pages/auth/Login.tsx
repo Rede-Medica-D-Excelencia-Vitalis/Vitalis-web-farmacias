@@ -170,7 +170,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-white to-orange-50 flex relative overflow-hidden">
+    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-white to-orange-50 flex relative overflow-hidden" data-testid="login-page">
       {/* Partículas flutuantes animadas */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-2 h-2 bg-blue-400 rounded-full animate-float opacity-60"></div>
@@ -355,6 +355,7 @@ export default function Login() {
                   placeholder="seu@email.com"
                   className="pl-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
                   onFocus={handleFieldFocus}
+                  data-testid="email-input"
                   {...loginForm.register('email')}
                 />
               </div>
@@ -375,6 +376,7 @@ export default function Login() {
                   placeholder="Sua senha"
                   className="pl-10 pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
                   onFocus={handleFieldFocus}
+                  data-testid="password-input"
                   {...loginForm.register('senha')}
                 />
                 <button
@@ -417,6 +419,7 @@ export default function Login() {
               type="submit" 
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
               disabled={isLoading}
+              data-testid="login-button"
               onClick={(e) => {
                 console.log('🔘 Botão de login clicado');
                 // Não precisamos fazer nada aqui, o form onSubmit vai cuidar

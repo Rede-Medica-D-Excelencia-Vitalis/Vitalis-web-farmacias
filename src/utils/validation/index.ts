@@ -9,7 +9,9 @@
  * Valida email
  */
 export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || typeof email !== 'string') return false;
+  // Regex mais rigorosa para validar email
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   return emailRegex.test(email);
 }
 
@@ -25,6 +27,8 @@ export function isValidPhone(phone: string): boolean {
  * Valida CPF
  */
 export function isValidCPF(cpf: string): boolean {
+  if (!cpf || typeof cpf !== 'string') return false;
+  
   // Remove caracteres não numéricos
   const cleanCPF = cpf.replace(/\D/g, '');
   
@@ -59,6 +63,8 @@ export function isValidCPF(cpf: string): boolean {
  * Valida CNPJ
  */
 export function isValidCNPJ(cnpj: string): boolean {
+  if (!cnpj || typeof cnpj !== 'string') return false;
+  
   // Remove caracteres não numéricos
   const cleanCNPJ = cnpj.replace(/\D/g, '');
   
@@ -105,9 +111,10 @@ export function isValidCEP(cep: string): boolean {
  * Valida URL
  */
 export function isValidURL(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
   try {
-    new URL(url);
-    return true;
+    const urlObj = new URL(url);
+    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
   } catch {
     return false;
   }
@@ -166,8 +173,20 @@ export function isAlphaNumeric(value: string): boolean {
  * Valida se uma data é válida
  */
 export function isValidDate(date: string | Date): boolean {
+  if (!date) return false;
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj instanceof Date && !isNaN(dateObj.getTime());
+  if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) return false;
+  
+  // Verifica se a data é válida (não é inválida como 2023-02-29 em ano não bissexto)
+  if (typeof date === 'string') {
+    const [year, month, day] = date.split('-').map(Number);
+    const testDate = new Date(year, month - 1, day);
+    return testDate.getFullYear() === year && 
+           testDate.getMonth() === month - 1 && 
+           testDate.getDate() === day;
+  }
+  
+  return true;
 }
 
 /**
@@ -227,6 +246,10 @@ export function isInteger(value: number): boolean {
 export function isDecimal(value: number): boolean {
   return typeof value === 'number' && !Number.isInteger(value);
 }
+
+
+
+
 
 
 

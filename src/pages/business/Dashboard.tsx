@@ -186,7 +186,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="dashboard-page">
       {/* Cabeçalho da página */}
       <div className="flex flex-col md:flex-row justify-between items-center">
         <div>
@@ -201,6 +201,17 @@ const Dashboard = () => {
             <span>Online</span>
           </div>
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            data-testid="logout-button"
+            onClick={() => {
+              // Implementar logout aqui se necessário
+              console.log('Logout clicked');
+            }}
+          >
+            Sair
+          </Button>
         </div>
       </div>
 

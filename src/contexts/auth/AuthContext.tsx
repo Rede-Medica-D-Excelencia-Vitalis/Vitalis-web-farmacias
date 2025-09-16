@@ -32,7 +32,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuth = () => {
     console.log('🔍 Verificando autenticação...');
     const token = localStorage.getItem('authToken');
-    const currentUser = apiService.auth.getCurrentUser();
+    
+    // Verificar se apiService está disponível antes de usar
+    let currentUser = null;
+    try {
+      if (apiService?.auth?.getCurrentUser) {
+        currentUser = apiService.auth.getCurrentUser();
+      }
+    } catch (error) {
+      console.warn('⚠️ apiService não disponível, usando localStorage diretamente');
+      const userData = localStorage.getItem('user');
+      currentUser = userData ? JSON.parse(userData) : null;
+    }
     
     console.log('Token:', token ? 'Presente' : 'Ausente');
     console.log('Usuário:', currentUser);
@@ -54,12 +65,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       console.log('🔐 Tentando login...', { email });
       
+      // Verificar se apiService está disponível
+      if (!apiService?.auth?.login) {
+        throw new Error('Serviço de autenticação não disponível');
+      }
+      
       const response: LoginResponse = await apiService.auth.login(email, senha);
       console.log('📥 Resposta do login:', response);
       
       if (response.sucesso && response.token && response.usuario) {
         console.log('✅ Login bem-sucedido, salvando dados...');
-        apiService.auth.setAuthData(response.token, response.usuario);
+        
+        // Usar apiService se disponível, senão usar localStorage diretamente
+        if (apiService?.auth?.setAuthData) {
+          apiService.auth.setAuthData(response.token, response.usuario);
+        } else {
+          localStorage.setItem('authToken', response.token);
+          localStorage.setItem('user', JSON.stringify(response.usuario));
+        }
+        
         setUser(response.usuario);
         console.log('💾 Dados salvos no localStorage');
         return true;
@@ -86,7 +110,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    apiService.auth.logout();
+    // Usar apiService se disponível, senão usar localStorage diretamente
+    if (apiService?.auth?.logout) {
+      apiService.auth.logout();
+    } else {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+    }
     setUser(null);
   };
 

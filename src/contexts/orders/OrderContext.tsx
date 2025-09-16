@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ORDER_STATUS } from '@/config/constants';
+import { apiService } from '@/lib/api';
 
 // Tipos
 export type OrderStatus = typeof ORDER_STATUS[keyof typeof ORDER_STATUS];
@@ -165,40 +166,47 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       setIsLoading(true);
       setError(null);
       
-      // Simular chamada à API
-      // const response = await apiService.orders.getOrders();
-      // setOrders(response.data);
-      
-      // Por enquanto, usar dados mock
-      const mockOrders: Order[] = [
-        {
-          id: '1',
-          patientId: '1',
-          patientName: 'João Silva',
-          items: [
-            {
-              id: '1',
-              productId: '1',
-              productName: 'Paracetamol 500mg',
-              quantity: 2,
-              unitPrice: 5.50,
-              totalPrice: 11.00,
-            }
-          ],
-          status: ORDER_STATUS.PENDING,
-          total: 11.00,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          priority: 'medium',
-        }
-      ];
-      
-      setOrders(mockOrders);
-      setPagination(prev => ({
-        ...prev,
-        total: mockOrders.length,
-        totalPages: Math.ceil(mockOrders.length / prev.pageSize),
-      }));
+      // Verificar se apiService está disponível
+      if (apiService?.pedidos?.listar) {
+        const response = await apiService.pedidos.listar();
+        setOrders(response);
+        setPagination(prev => ({
+          ...prev,
+          total: response.length,
+          totalPages: Math.ceil(response.length / prev.pageSize),
+        }));
+      } else {
+        // Fallback para dados mock se apiService não estiver disponível
+        const mockOrders: Order[] = [
+          {
+            id: '1',
+            patientId: '1',
+            patientName: 'João Silva',
+            items: [
+              {
+                id: '1',
+                productId: '1',
+                productName: 'Paracetamol 500mg',
+                quantity: 2,
+                unitPrice: 5.50,
+                totalPrice: 11.00,
+              }
+            ],
+            status: ORDER_STATUS.PENDING,
+            total: 11.00,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            priority: 'medium',
+          }
+        ];
+        
+        setOrders(mockOrders);
+        setPagination(prev => ({
+          ...prev,
+          total: mockOrders.length,
+          totalPages: Math.ceil(mockOrders.length / prev.pageSize),
+        }));
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar pedidos');
     } finally {
@@ -262,8 +270,10 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       setIsLoading(true);
       setError(null);
       
-      // Simular chamada à API
-      // await apiService.orders.updateOrder(id, updates);
+      // Verificar se apiService está disponível
+      if (apiService?.pedidos?.atualizarStatus) {
+        await apiService.pedidos.atualizarStatus(id, updates.status || '');
+      }
       
       setOrders(prev => 
         prev.map(order => 

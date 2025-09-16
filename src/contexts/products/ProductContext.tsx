@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { PRODUCT_STATUS, PRODUCT_CATEGORIES } from '@/config/constants';
+import { apiService } from '@/lib/api';
 
 // Tipos
 export type ProductStatus = typeof PRODUCT_STATUS[keyof typeof PRODUCT_STATUS];
@@ -206,42 +207,49 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      // Simular chamada à API
-      // const response = await apiService.products.getProducts();
-      // setProducts(response.data);
-      
-      // Por enquanto, usar dados mock
-      const mockProducts: Product[] = [
-        {
-          id: '1',
-          name: 'Paracetamol 500mg',
-          description: 'Analgésico e antitérmico',
-          category: PRODUCT_CATEGORIES.MEDICINE,
-          status: PRODUCT_STATUS.AVAILABLE,
-          price: 5.50,
-          costPrice: 3.50,
-          stock: 100,
-          minStock: 20,
-          maxStock: 200,
-          sku: 'PARA500',
-          manufacturer: 'Laboratório ABC',
-          prescriptionRequired: false,
-          tags: ['analgésico', 'antitérmico'],
-          activeIngredients: ['Paracetamol'],
-          dosageForm: 'Comprimido',
-          strength: '500mg',
-          packageSize: '20 comprimidos',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }
-      ];
-      
-      setProducts(mockProducts);
-      setPagination(prev => ({
-        ...prev,
-        total: mockProducts.length,
-        totalPages: Math.ceil(mockProducts.length / prev.pageSize),
-      }));
+      // Verificar se apiService está disponível
+      if (apiService?.produtos?.listar) {
+        const response = await apiService.produtos.listar();
+        setProducts(response);
+        setPagination(prev => ({
+          ...prev,
+          total: response.length,
+          totalPages: Math.ceil(response.length / prev.pageSize),
+        }));
+      } else {
+        // Fallback para dados mock se apiService não estiver disponível
+        const mockProducts: Product[] = [
+          {
+            id: '1',
+            name: 'Paracetamol 500mg',
+            description: 'Analgésico e antitérmico',
+            category: PRODUCT_CATEGORIES.MEDICINE,
+            status: PRODUCT_STATUS.AVAILABLE,
+            price: 5.50,
+            costPrice: 3.50,
+            stock: 100,
+            minStock: 20,
+            maxStock: 200,
+            sku: 'PARA500',
+            manufacturer: 'Laboratório ABC',
+            prescriptionRequired: false,
+            tags: ['analgésico', 'antitérmico'],
+            activeIngredients: ['Paracetamol'],
+            dosageForm: 'Comprimido',
+            strength: '500mg',
+            packageSize: '20 comprimidos',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+        ];
+        
+        setProducts(mockProducts);
+        setPagination(prev => ({
+          ...prev,
+          total: mockProducts.length,
+          totalPages: Math.ceil(mockProducts.length / prev.pageSize),
+        }));
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar produtos');
     } finally {
@@ -274,12 +282,20 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const newProduct: Product = {
-        ...productData,
-        id: `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      let newProduct: Product;
+      
+      if (apiService?.produtos?.criar) {
+        const response = await apiService.produtos.criar(productData);
+        newProduct = response;
+      } else {
+        // Fallback para criação local
+        newProduct = {
+          ...productData,
+          id: `product_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }
       
       setProducts(prev => [newProduct, ...prev]);
       return newProduct;
@@ -296,6 +312,10 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     try {
       setIsLoading(true);
       setError(null);
+      
+      if (apiService?.produtos?.atualizar) {
+        await apiService.produtos.atualizar(id, updates);
+      }
       
       setProducts(prev => 
         prev.map(product => 
@@ -321,6 +341,10 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     try {
       setIsLoading(true);
       setError(null);
+      
+      if (apiService?.produtos?.deletar) {
+        await apiService.produtos.deletar(id);
+      }
       
       setProducts(prev => prev.filter(product => product.id !== id));
       
