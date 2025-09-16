@@ -67,7 +67,7 @@ export function useApi<T = any>(
       
       options.onError?.(errorMessage);
     }
-  }, [apiFunction, options]);
+  }, [apiFunction, options.onSuccess, options.onError]);
 
   const reset = useCallback(() => {
     setState({
