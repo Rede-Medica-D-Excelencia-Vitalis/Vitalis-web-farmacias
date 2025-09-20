@@ -225,14 +225,19 @@ const Cadastro = () => {
       setResultadosValidacao(prev => ({ ...prev, alvara: resultado }));
       
       if (resultado.valido && !resultado.existe) {
-        toast.success('Alvará válido!');
+        if (resultado.requer_aprovacao) {
+          toast.success('Alvará válido! Aguardará aprovação após o cadastro.');
+        } else {
+          toast.success('Alvará válido!');
+        }
       } else if (resultado.existe) {
         toast.error(resultado.erro);
       } else {
-        toast.error('Alvará inválido');
+        toast.error(resultado.erro || 'Alvará inválido');
       }
     } catch (error) {
       toast.error('Erro ao validar alvará');
+      setResultadosValidacao(prev => ({ ...prev, alvara: { valido: false, erro: 'Erro na validação' } }));
     } finally {
       setValidandoDocumentos(prev => ({ ...prev, alvara: false }));
     }
@@ -673,9 +678,24 @@ const Cadastro = () => {
                 </div>
                 {cadastroForm.formState.errors.alvaraFuncionamento && <p className="text-sm text-red-500 animate-pulse">{cadastroForm.formState.errors.alvaraFuncionamento.message}</p>}
                 {resultadosValidacao.alvara && (
-                  <p className={`text-xs ${resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 'text-green-600' : 'text-red-600'}`}>
-                    {resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 'Alvará válido' : resultadosValidacao.alvara.erro}
-                  </p>
+                  <div className="space-y-1">
+                    <p className={`text-xs ${resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 'text-green-600' : 'text-red-600'}`}>
+                      {resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 
+                        'Alvará válido' : 
+                        resultadosValidacao.alvara.erro
+                      }
+                    </p>
+                    {resultadosValidacao.alvara.valido && resultadosValidacao.alvara.requer_aprovacao && (
+                      <p className="text-xs text-amber-600 font-medium">
+                        ⚠️ Aguardará aprovação manual após o cadastro
+                      </p>
+                    )}
+                    {resultadosValidacao.alvara.mensagem && (
+                      <p className="text-xs text-blue-600">
+                        💡 {resultadosValidacao.alvara.mensagem}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
