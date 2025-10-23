@@ -202,17 +202,6 @@ const Dashboard = () => {
             <span>Online</span>
           </div>
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            data-testid="logout-button"
-            onClick={() => {
-              // Implementar logout aqui se necessário
-              console.log('Logout clicked');
-            }}
-          >
-            Sair
-          </Button>
         </div>
       </div>
 

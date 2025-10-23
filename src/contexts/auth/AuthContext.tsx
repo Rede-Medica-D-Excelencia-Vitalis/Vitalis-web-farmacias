@@ -6,6 +6,7 @@ interface User {
   nome: string;
   email: string;
   tipo_usuario: 'farmacia' | 'paciente' | 'medico' | 'admin';
+  profile_image_url?: string | null;
 }
 
 interface AuthContextType {
