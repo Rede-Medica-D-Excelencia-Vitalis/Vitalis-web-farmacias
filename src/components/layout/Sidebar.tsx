@@ -127,7 +127,21 @@ const Sidebar = () => {
               flex items-center gap-3 mb-3
               ${isCollapsed ? 'justify-center' : ''}
             `}>
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              {/* Profile Image or Default Icon */}
+              {user?.profile_image_url ? (
+                <img 
+                  src={user.profile_image_url} 
+                  alt={user?.nome || 'Perfil'} 
+                  className="w-8 h-8 rounded-full object-cover border-2 border-blue-200"
+                  onError={(e) => {
+                    // Se a imagem falhar ao carregar, mostrar ícone padrão
+                    e.currentTarget.style.display = 'none';
+                    const icon = e.currentTarget.nextElementSibling;
+                    if (icon) icon.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <div className={`w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center ${user?.profile_image_url ? 'hidden' : ''}`}>
                 <User className="h-4 w-4 text-blue-600" />
               </div>
               {!isCollapsed && (

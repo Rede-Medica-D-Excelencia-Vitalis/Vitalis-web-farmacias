@@ -7,7 +7,7 @@
  * 3. Detalhes dos pedidos
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { apiService, Pedido } from '@/lib/api';
 import { integrationService, IntegratedOrder } from '@/lib/integration';
+import { notificationService } from '@/services/notifications/notificationService';
 
 const Orders = () => {
   const [pedidos, setPedidos] = useState<IntegratedOrder[]>([]);
@@ -47,15 +48,27 @@ const Orders = () => {
   const [selectedPedidoForStatus, setSelectedPedidoForStatus] = useState<Pedido | null>(null);
   const [novoStatus, setNovoStatus] = useState<string>('');
   const [observacoes, setObservacoes] = useState('');
+  
+  // Ref para controlar o intervalo de refresh automático
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const previousPedidosCount = useRef<number>(0);
 
   // Carregar pedidos
-  const carregarPedidos = async () => {
+  const carregarPedidos = async (silencioso: boolean = false) => {
     try {
-      setLoading(true);
+      // Apenas mostra loading na primeira carga
+      if (!silencioso) {
+        setLoading(true);
+      }
+      
       const user = apiService.auth.getCurrentUser();
-      setCurrentUser(user);
+      if (!currentUser) {
+        setCurrentUser(user);
+      }
       
       console.log('🔍 Debug - Usuário logado:', user);
+      
+      let novosPedidos: IntegratedOrder[] = [];
       
       if (user && user.tipo_usuario === 'farmacia') {
         console.log('🔍 Debug - Buscando pedidos para farmácia ID:', user.id);
@@ -67,11 +80,11 @@ const Orders = () => {
           
           if (todosPedidos && todosPedidos.pedidos) {
             // Converter o formato dos pedidos para o formato esperado pelo componente
-            const pedidosConvertidos = todosPedidos.pedidos.map(pedido => ({
+            novosPedidos = todosPedidos.pedidos.map(pedido => ({
               id: pedido.id,
               numero_pedido: pedido.numero_pedido,
               farmacia_id: user.id,
-              paciente_id: 0, // Não temos essa informação no dashboard
+              paciente_id: 0,
               total: pedido.total,
               subtotal: pedido.total,
               taxa_entrega: 0,
@@ -88,34 +101,82 @@ const Orders = () => {
               itens: []
             }));
             
-            console.log('🔍 Debug - Pedidos convertidos:', pedidosConvertidos);
-            setPedidos(pedidosConvertidos);
-          } else {
-            setPedidos([]);
+            console.log('🔍 Debug - Pedidos convertidos:', novosPedidos);
           }
         } catch (error) {
           console.log('🔍 Debug - Erro ao buscar todos os pedidos:', error);
-          // Fallback para API local
           const data = await apiService.pedidos.listar();
-          setPedidos(data);
+          novosPedidos = data;
         }
       } else {
         console.log('🔍 Debug - Usando API local');
-        // Fallback para API local
         const data = await apiService.pedidos.listar();
-        setPedidos(data);
+        novosPedidos = data;
       }
+      
+      // Detectar novos pedidos e notificar (apenas em refresh silencioso)
+      if (silencioso && novosPedidos.length > previousPedidosCount.current && previousPedidosCount.current > 0) {
+        const qtdNovos = novosPedidos.length - previousPedidosCount.current;
+        console.log(`🔔 ${qtdNovos} novo(s) pedido(s) detectado(s)!`);
+        
+        // Tocar som de notificação da farmácia
+        if (qtdNovos === 1) {
+          const novoPedido = novosPedidos[0];
+          notificationService.newOrder(
+            novoPedido.numero_pedido || `#${novoPedido.id}`,
+            novoPedido.paciente_nome || 'Cliente'
+          );
+        } else {
+          notificationService.info(
+            'Novos Pedidos Recebidos',
+            `${qtdNovos} novos pedidos foram recebidos!`,
+            { 
+              sound: true, 
+              usePharmacySound: true,
+              duration: 6000 
+            }
+          );
+        }
+      }
+      
+      previousPedidosCount.current = novosPedidos.length;
+      setPedidos(novosPedidos);
+      
     } catch (error) {
-      toast.error('Erro ao carregar pedidos');
+      if (!silencioso) {
+        toast.error('Erro ao carregar pedidos');
+      }
       console.error('Erro:', error);
     } finally {
-      setLoading(false);
+      if (!silencioso) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     carregarPedidos();
   }, [selectedStatus]);
+
+  // Refresh automático silencioso a cada 10 segundos
+  useEffect(() => {
+    console.log('✅ Refresh automático ativado - Atualizando pedidos a cada 10 segundos');
+    
+    // Configurar intervalo de 10 segundos
+    intervalRef.current = setInterval(() => {
+      console.log('🔄 Atualizando pedidos automaticamente (silencioso)...');
+      carregarPedidos(true); // true = silencioso, não mostra loading
+    }, 10000); // 10 segundos
+
+    // Cleanup: limpar intervalo quando componente desmontar
+    return () => {
+      if (intervalRef.current) {
+        console.log('⏸️ Limpando intervalo de refresh automático');
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Filtrar pedidos
   const pedidosFiltrados = pedidos.filter(pedido => {
@@ -320,8 +381,10 @@ const Orders = () => {
                   <span className="font-semibold text-lg">{pedido.paciente_nome || 'Cliente'}</span>
                 </div>
                 <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-base">{new Date(pedido.data_criacao).toLocaleDateString('pt-BR')}</span>
+                  <Clock className="h-4 w-4" />
+                  <span className="text-base">
+                    {new Date(pedido.data_criacao).toLocaleDateString('pt-BR')} às {new Date(pedido.data_criacao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Coins className="h-4 w-4" />

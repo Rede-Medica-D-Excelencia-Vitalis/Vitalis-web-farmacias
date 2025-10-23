@@ -1,0 +1,10 @@
+# Configuração do Trivy para scanner de vulnerabilidades
+format: table
+severity: HIGH,CRITICAL
+exit-code: 1
+ignore-unfixed: false
+ignorefile: .trivyignore
+timeout: 5m
+quiet: false
+no-progress: false
+clear-cache: false

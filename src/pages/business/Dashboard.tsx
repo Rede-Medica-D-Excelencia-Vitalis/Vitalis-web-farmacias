@@ -10,6 +10,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import DashboardCharts from '@/components/dashboard/DashboardCharts';
 import CustomerReviews from '@/components/dashboard/CustomerReviews';
 import { apiService } from '@/lib/api';
@@ -201,17 +202,6 @@ const Dashboard = () => {
             <span>Online</span>
           </div>
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            data-testid="logout-button"
-            onClick={() => {
-              // Implementar logout aqui se necessário
-              console.log('Logout clicked');
-            }}
-          >
-            Sair
-          </Button>
         </div>
       </div>
 

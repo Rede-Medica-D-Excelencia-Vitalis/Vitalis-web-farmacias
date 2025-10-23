@@ -31,9 +31,21 @@ const cadastroSchema = z.object({
   cidade: z.string().min(2, 'Cidade obrigatória'),
   estado: z.string().min(2, 'Estado obrigatório'),
   cep: z.string().min(8, 'CEP inválido'),
-  email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  confirmarSenha: z.string(),
+  email: z.string()
+    .min(1, 'Email é obrigatório')
+    .email('Email inválido')
+    .max(255, 'Email muito longo')
+    .refine((email) => {
+      // Validar caracteres especiais no email
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      return emailRegex.test(email);
+    }, 'Email contém caracteres inválidos'),
+  senha: z.string()
+    .min(1, 'Senha é obrigatória')
+    .min(8, 'Senha deve ter pelo menos 8 caracteres')
+    .max(100, 'Senha muito longa')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Senha deve conter pelo menos uma letra minúscula, uma maiúscula e um número'),
+  confirmarSenha: z.string().min(1, 'Confirmação de senha é obrigatória'),
   // Documentos
   alvaraFuncionamento: z.string().min(1, 'Alvará de funcionamento é obrigatório'),
   autorizacaoVigilancia: z.string().min(1, 'Autorização da vigilância sanitária é obrigatória'),
@@ -119,6 +131,27 @@ const Cadastro = () => {
     defaultValues: { termos: false }
   });
 
+  // Função para sanitizar inputs maliciosos
+  const sanitizeInput = (value: string) => {
+    // Remover tags HTML e scripts
+    return value
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '');
+  };
+
+  // Função para validar caracteres especiais
+  const validateSpecialChars = (value: string, field: 'email' | 'password') => {
+    if (field === 'email') {
+      // Email não deve conter caracteres especiais perigosos
+      const dangerousChars = /[<>\"'%;()&+]/.test(value);
+      return !dangerousChars;
+    }
+    // Senha pode conter caracteres especiais
+    return true;
+  };
+
   // Função para lidar com a busca do CEP
   const handleCEPChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const cepFormatado = formatCEP(e.target.value);
@@ -192,14 +225,19 @@ const Cadastro = () => {
       setResultadosValidacao(prev => ({ ...prev, alvara: resultado }));
       
       if (resultado.valido && !resultado.existe) {
-        toast.success('Alvará válido!');
+        if (resultado.requer_aprovacao) {
+          toast.success('Alvará válido! Aguardará aprovação após o cadastro.');
+        } else {
+          toast.success('Alvará válido!');
+        }
       } else if (resultado.existe) {
         toast.error(resultado.erro);
       } else {
-        toast.error('Alvará inválido');
+        toast.error(resultado.erro || 'Alvará inválido');
       }
     } catch (error) {
       toast.error('Erro ao validar alvará');
+      setResultadosValidacao(prev => ({ ...prev, alvara: { valido: false, erro: 'Erro na validação' } }));
     } finally {
       setValidandoDocumentos(prev => ({ ...prev, alvara: false }));
     }
@@ -276,35 +314,35 @@ const Cadastro = () => {
   const onCadastroSubmit = async (data: CadastroFormData) => {
     setIsLoading(true);
     try {
-      // Preparar dados para o backend
-      const dadosCadastro = {
-        nome: data.nome,
-        email: data.email,
-        senha: data.senha,
-        cnpj: data.cnpj.replace(/\D/g, ''), // Remove formatação
-        telefone: data.telefone.replace(/\D/g, ''), // Remove formatação
+      // Sanitizar dados de entrada
+      const sanitizedData = {
+        nome: sanitizeInput(data.nome),
+        email: sanitizeInput(data.email),
+        senha: sanitizeInput(data.senha),
+        cnpj: sanitizeInput(data.cnpj).replace(/\D/g, ''), // Remove formatação
+        telefone: sanitizeInput(data.telefone).replace(/\D/g, ''), // Remove formatação
         endereco: {
-          logradouro: data.rua,
-          numero: data.numero,
-          complemento: data.complemento || '',
+          logradouro: sanitizeInput(data.rua),
+          numero: sanitizeInput(data.numero),
+          complemento: sanitizeInput(data.complemento || ''),
           bairro: '', // Campo opcional
-          cidade: data.cidade,
-          estado: data.estado,
-          cep: data.cep.replace(/\D/g, '') // Remove formatação
+          cidade: sanitizeInput(data.cidade),
+          estado: sanitizeInput(data.estado),
+          cep: sanitizeInput(data.cep).replace(/\D/g, '') // Remove formatação
         },
         // Documentos
         documentos: {
-          alvara_funcionamento: data.alvaraFuncionamento,
-          autorizacao_vigilancia: data.autorizacaoVigilancia,
-          inscricao_estadual: data.inscricaoEstadual || '',
-          inscricao_municipal: data.inscricaoMunicipal || '',
-          responsavel_tecnico: data.responsavelTecnico,
-          registro_crf: data.registroCRF
+          alvara_funcionamento: sanitizeInput(data.alvaraFuncionamento),
+          autorizacao_vigilancia: sanitizeInput(data.autorizacaoVigilancia),
+          inscricao_estadual: sanitizeInput(data.inscricaoEstadual || ''),
+          inscricao_municipal: sanitizeInput(data.inscricaoMunicipal || ''),
+          responsavel_tecnico: sanitizeInput(data.responsavelTecnico),
+          registro_crf: sanitizeInput(data.registroCRF)
         }
       };
 
       // Chamar API do backend - rota específica para farmácia
-      const response = await api.post('/cadastro/farmacia', dadosCadastro);
+      const response = await api.post('/cadastro/farmacia', sanitizedData);
       
       if (response.status === 201 || response.status === 200) {
         toast.success('Cadastro realizado com sucesso! Faça login para continuar.');
@@ -569,6 +607,7 @@ const Cadastro = () => {
                     type={showPassword ? "text" : "password"}
                     placeholder="Mínimo 6 caracteres"
                     className="pl-10 pr-10"
+                    data-testid="password-input"
                     {...cadastroForm.register('senha')}
                   />
                   <button
@@ -579,7 +618,7 @@ const Cadastro = () => {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {cadastroForm.formState.errors.senha && <p className="text-sm text-red-500 animate-pulse">{cadastroForm.formState.errors.senha.message}</p>}
+                {cadastroForm.formState.errors.senha && <p className="text-sm text-red-500 animate-pulse" data-testid="password-error">{cadastroForm.formState.errors.senha.message}</p>}
               </div>
 
               <div className="space-y-2">
@@ -591,6 +630,7 @@ const Cadastro = () => {
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirme sua senha"
                     className="pl-10 pr-10"
+                    data-testid="confirm-password-input"
                     {...cadastroForm.register('confirmarSenha')}
                   />
                   <button
@@ -638,9 +678,24 @@ const Cadastro = () => {
                 </div>
                 {cadastroForm.formState.errors.alvaraFuncionamento && <p className="text-sm text-red-500 animate-pulse">{cadastroForm.formState.errors.alvaraFuncionamento.message}</p>}
                 {resultadosValidacao.alvara && (
-                  <p className={`text-xs ${resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 'text-green-600' : 'text-red-600'}`}>
-                    {resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 'Alvará válido' : resultadosValidacao.alvara.erro}
-                  </p>
+                  <div className="space-y-1">
+                    <p className={`text-xs ${resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 'text-green-600' : 'text-red-600'}`}>
+                      {resultadosValidacao.alvara.valido && !resultadosValidacao.alvara.existe ? 
+                        'Alvará válido' : 
+                        resultadosValidacao.alvara.erro
+                      }
+                    </p>
+                    {resultadosValidacao.alvara.valido && resultadosValidacao.alvara.requer_aprovacao && (
+                      <p className="text-xs text-amber-600 font-medium">
+                        ⚠️ Aguardará aprovação manual após o cadastro
+                      </p>
+                    )}
+                    {resultadosValidacao.alvara.mensagem && (
+                      <p className="text-xs text-blue-600">
+                        💡 {resultadosValidacao.alvara.mensagem}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -842,6 +897,7 @@ const Cadastro = () => {
                 type="submit"
                 className="flex-1"
                 disabled={isLoading}
+                data-testid="register-button"
               >
                 {isLoading ? 'Criando conta...' : 'Criar Conta'}
               </Button>

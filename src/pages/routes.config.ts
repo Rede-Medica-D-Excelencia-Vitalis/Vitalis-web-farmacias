@@ -17,6 +17,7 @@ const Orders = lazy(() => import('./business/Orders'));
 const Products = lazy(() => import('./business/Products'));
 const Pharmacy = lazy(() => import('./business/Pharmacy'));
 const Reports = lazy(() => import('./business/Reports'));
+const RastreamentoPedido = lazy(() => import('./business/RastreamentoPedido'));
 
 const Settings = lazy(() => import('./system/Settings'));
 const Profile = lazy(() => import('./system/Profile'));
@@ -87,6 +88,13 @@ export const routesConfig = {
       component: Reports,
       title: 'Relatórios',
       description: 'Relatórios e análises',
+      requiresAuth: true
+    },
+    rastreamento: {
+      path: '/rastreamento/:entregaId',
+      component: RastreamentoPedido,
+      title: 'Rastreamento de Entrega',
+      description: 'Rastreamento em tempo real da entrega',
       requiresAuth: true
     }
   },

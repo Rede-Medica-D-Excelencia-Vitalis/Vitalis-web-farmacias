@@ -10,3 +10,4 @@ export { default as Orders } from './Orders';
 export { default as Products } from './Products';
 export { default as Pharmacy } from './Pharmacy';
 export { default as Reports } from './Reports';
+export { default as RastreamentoPedido } from './RastreamentoPedido';

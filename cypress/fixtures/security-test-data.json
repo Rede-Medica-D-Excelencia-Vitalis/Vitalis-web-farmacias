@@ -1,0 +1,128 @@
+{
+  "users": {
+    "farmacia": {
+      "email": "farmacia@test.com",
+      "password": "password123",
+      "role": "farmacia",
+      "permissions": ["products", "orders", "patients"]
+    },
+    "admin": {
+      "email": "admin@test.com",
+      "password": "admin123",
+      "role": "admin",
+      "permissions": ["all"]
+    },
+    "user": {
+      "email": "user@test.com",
+      "password": "user123",
+      "role": "user",
+      "permissions": ["read"]
+    }
+  },
+  "maliciousInputs": {
+    "xss": [
+      "<script>alert('XSS')</script>",
+      "<img src='x' onerror='alert(\"XSS\")'>",
+      "<iframe src='javascript:alert(\"XSS\")'></iframe>",
+      "<svg onload='alert(\"XSS\")'>",
+      "<body onload='alert(\"XSS\")'>"
+    ],
+    "sqlInjection": [
+      "'; DROP TABLE users; --",
+      "1' OR '1'='1",
+      "'; INSERT INTO users VALUES ('hacker', 'password'); --",
+      "1' UNION SELECT * FROM users --",
+      "'; UPDATE users SET password='hacked' WHERE id=1; --"
+    ],
+    "htmlInjection": [
+      "<div onclick='alert(\"Injection\")'>Click me</div>",
+      "<style>body{background:red}</style>",
+      "<link rel='stylesheet' href='malicious.css'>",
+      "<meta http-equiv='refresh' content='0;url=malicious.com'>"
+    ],
+    "javascriptInjection": [
+      "javascript:alert('Injection')",
+      "data:text/html,<script>alert('Injection')</script>",
+      "vbscript:alert('Injection')",
+      "onclick=alert('Injection')"
+    ]
+  },
+  "testData": {
+    "products": {
+      "valid": {
+        "name": "Produto Teste",
+        "description": "Descrição do produto teste",
+        "price": 10.50,
+        "stock": 100
+      },
+      "invalid": {
+        "name": "",
+        "description": "",
+        "price": "invalid",
+        "stock": "invalid"
+      }
+    },
+    "orders": {
+      "valid": {
+        "patientName": "João Silva",
+        "patientCpf": "12345678901",
+        "patientPhone": "11999999999",
+        "notes": "Observações do pedido"
+      },
+      "invalid": {
+        "patientName": "",
+        "patientCpf": "invalid",
+        "patientPhone": "invalid",
+        "notes": ""
+      }
+    },
+    "patients": {
+      "valid": {
+        "name": "João Silva",
+        "cpf": "12345678901",
+        "phone": "11999999999",
+        "email": "joao@test.com",
+        "address": "Rua Teste, 123"
+      },
+      "invalid": {
+        "name": "",
+        "cpf": "invalid",
+        "phone": "invalid",
+        "email": "invalid",
+        "address": ""
+      }
+    }
+  },
+  "securityHeaders": {
+    "required": [
+      "x-content-type-options",
+      "x-frame-options",
+      "x-xss-protection",
+      "strict-transport-security",
+      "content-security-policy"
+    ],
+    "optional": [
+      "referrer-policy",
+      "permissions-policy",
+      "cross-origin-embedder-policy",
+      "cross-origin-opener-policy",
+      "cross-origin-resource-policy"
+    ]
+  },
+  "lgpdElements": {
+    "required": [
+      "privacy-policy-link",
+      "cookie-consent",
+      "data-protection",
+      "consent-checkbox",
+      "data-consent-checkbox"
+    ],
+    "optional": [
+      "terms-of-use-link",
+      "cookie-settings-modal",
+      "data-export-button",
+      "data-deletion-button",
+      "consent-withdrawal-button"
+    ]
+  }
+}

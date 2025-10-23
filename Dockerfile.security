@@ -1,0 +1,44 @@
+# Dockerfile para testes de segurança
+FROM node:18-alpine AS security-test
+
+# Instalar dependências de segurança
+RUN apk add --no-cache \
+    curl \
+    wget \
+    openssl \
+    ca-certificates
+
+# Configurar usuário não-root
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Definir diretório de trabalho
+WORKDIR /app
+
+# Copiar arquivos de dependências
+COPY package*.json ./
+
+# Instalar dependências
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Copiar código fonte
+COPY . .
+
+# Configurar permissões
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+# Expor porta
+EXPOSE 3000
+
+# Configurar variáveis de ambiente de segurança
+ENV NODE_ENV=production
+ENV SECURITY_ENABLED=true
+ENV HTTPS_REQUIRED=true
+ENV CSRF_PROTECTION=true
+ENV XSS_PROTECTION=true
+ENV SQL_INJECTION_PROTECTION=true
+
+# Comando de inicialização
+CMD ["npm", "run", "security:check"]

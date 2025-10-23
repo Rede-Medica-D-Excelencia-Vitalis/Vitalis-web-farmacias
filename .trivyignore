@@ -1,0 +1,19 @@
+# Arquivos e diretórios a serem ignorados pelo Trivy
+node_modules/
+.git/
+.cypress/
+coverage/
+dist/
+build/
+*.log
+*.tmp
+*.temp
+
+# Vulnerabilidades conhecidas e aceitas
+CVE-2021-44228
+CVE-2021-45046
+CVE-2021-45105
+
+# Dependências com vulnerabilidades conhecidas mas aceitas
+npm:lodash:4.17.21
+npm:axios:1.10.0
