@@ -59,16 +59,22 @@ export interface IntegratedOrder {
   subtotal: number;
   taxa_entrega: number;
   desconto: number;
-  status: 'pendente' | 'em_preparo' | 'pronto_entrega' | 'em_entrega' | 'entregue' | 'cancelado';
+  status: 'pendente' | 'aceito' | 'rejeitado' | 'em_entrega' | 'entregue';
   endereco_entrega: string;
   forma_pagamento: string;
   observacoes_entrega?: string;
+  observacoes_pedido?: string;
   data_criacao: string;
   data_atualizacao: string;
   farmacia_nome?: string;
   paciente_nome?: string;
   paciente_telefone?: string;
   itens?: IntegratedOrderItem[];
+  status_entrega?: string | null;
+  entrega_id?: number | null;
+  codigo_confirmacao?: string | null;
+  devolucao_confirmada?: boolean;
+  motivo_problema?: string | null;
 }
 
 export interface IntegratedOrderItem {
