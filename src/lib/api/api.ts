@@ -72,10 +72,11 @@ export interface Pedido {
   subtotal: number;
   taxa_entrega: number;
   desconto: number;
-  status: 'pendente' | 'em_preparo' | 'pronto_entrega' | 'em_entrega' | 'entregue' | 'cancelado';
+  status: 'pendente' | 'aceito' | 'rejeitado' | 'em_entrega' | 'entregue';
   endereco_entrega: string;
   forma_pagamento: string;
   observacoes_entrega?: string;
+  observacoes_pedido?: string;
   data_criacao: string;
   data_atualizacao: string;
   farmacia_nome?: string;
@@ -84,6 +85,8 @@ export interface Pedido {
   status_entrega?: string;
   motoboy_id?: number;
   motoboy_nome?: string;
+  entrega_id?: number | null;
+  codigo_confirmacao?: string | null;
   itens?: ItemPedido[];
 }
 
@@ -156,6 +159,14 @@ export interface Avaliacao {
   avaliador_id?: number;
 }
 
+export interface SolicitarMotoboyPayload {
+  farmacia_id: number;
+  pedido_id: number;
+  valor_entrega?: number;
+  observacoes?: string | null;
+  urgente?: boolean;
+}
+
 // Métodos da API
 export const apiService = {
   // Autenticação
@@ -194,6 +205,23 @@ export const apiService = {
       console.log('✅ Dados salvos com sucesso');
     },
 
+    setFarmaciaAtual: (farmacia: { id: number; usuario_id: number }) => {
+      console.log('🏪 Salvando farmácia atual no localStorage:', farmacia);
+      localStorage.setItem(
+        'farmaciaAtual',
+        JSON.stringify({
+          id: farmacia.id,
+          usuario_id: farmacia.usuario_id,
+        })
+      );
+    },
+
+    getFarmaciaAtual: () => {
+      const farmacia = localStorage.getItem('farmaciaAtual');
+      console.log('🏪 Buscando farmácia atual no localStorage:', farmacia);
+      return farmacia ? JSON.parse(farmacia) : null;
+    },
+
     refreshToken: async (): Promise<{ token: string }> => {
       console.log('🔄 Renovando token...');
       try {
@@ -227,7 +255,20 @@ export const apiService = {
     },
 
     atualizarStatus: async (id: number, status: string, observacoes?: string) => {
+      console.log('🚚 [apiService.pedidos.atualizarStatus] Enviando atualização de status', {
+        pedidoId: id,
+        status,
+        observacoes: observacoes ?? '—'
+      });
+
       const response = await api.put(`/pedidos/${id}/status`, { status, observacoes });
+
+      console.log('✅ [apiService.pedidos.atualizarStatus] Resposta recebida', {
+        pedidoId: id,
+        status,
+        data: response.data
+      });
+
       return response.data;
     },
 
@@ -239,6 +280,21 @@ export const apiService = {
     // Estatísticas de pedidos
     getEstatisticas: async () => {
       const response = await api.get('/pedidos/estatisticas');
+      return response.data;
+    },
+  },
+
+  entregas: {
+    solicitarMotoboy: async (payload: SolicitarMotoboyPayload) => {
+      console.log('📨 [apiService.entregas.solicitarMotoboy] Enviando solicitação de entrega', payload);
+
+      const response = await api.post('/entregas/solicitar-motoboy', payload);
+
+      console.log('✅ [apiService.entregas.solicitarMotoboy] Resposta recebida', response.data);
+      return response.data;
+    },
+    confirmarColetaPorPedido: async (pedidoId: number) => {
+      const response = await api.post(`/entregas/pedido/${pedidoId}/confirmar-coleta`);
       return response.data;
     },
   },

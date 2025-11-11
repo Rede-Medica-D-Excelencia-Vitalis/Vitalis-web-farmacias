@@ -1,6 +1,6 @@
 export { integrationApi, integrationService } from './integration';
 export { patientApi } from './patientIntegration';
-export { motoboyApi } from './motoboyIntegration';
+export { default as motoboyIntegrationService, motoboyApi } from './motoboyIntegration';
 
 export type { 
   IntegratedOrder, 

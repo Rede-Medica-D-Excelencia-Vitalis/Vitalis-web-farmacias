@@ -115,10 +115,11 @@ export interface PedidoComEntrega {
   subtotal: number;
   taxa_entrega: number;
   desconto: number;
-  status: 'pendente' | 'em_preparo' | 'pronto_entrega' | 'em_entrega' | 'entregue' | 'cancelado';
+  status: 'pendente' | 'aceito' | 'rejeitado' | 'em_entrega' | 'entregue';
   endereco_entrega: string;
   forma_pagamento: string;
   observacoes_entrega?: string;
+  observacoes_pedido?: string;
   data_criacao: string;
   data_atualizacao: string;
   farmacia_nome?: string;
@@ -127,6 +128,7 @@ export interface PedidoComEntrega {
   itens?: any[];
   entrega?: Entrega;
   motoboy?: Motoboy;
+  status_entrega?: string | null;
 }
 
 export interface NotificacaoEntrega {
@@ -242,6 +244,18 @@ export const motoboyIntegrationService = {
     } catch (error) {
       console.error('Erro ao cancelar entrega:', error);
       throw new Error('Não foi possível cancelar a entrega');
+    }
+  },
+
+  /**
+   * Confirmar devolução após problema na entrega
+   */
+  async confirmarDevolucao(entregaId: number): Promise<void> {
+    try {
+      await motoboyApi.post(`/entregas/${entregaId}/confirmar-devolucao`);
+    } catch (error) {
+      console.error('Erro ao confirmar devolução:', error);
+      throw new Error('Não foi possível confirmar a devolução');
     }
   },
 
